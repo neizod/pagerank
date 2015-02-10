@@ -25,21 +25,24 @@ class GraphToMatrix(object):
         A = [[0 for _ in range(self.nodes())] for _ in range(self.nodes())]
         for i, j in self.graph:
             A[i][j] = 1
-            A[j][i] = 1
+            if not self.directed:
+                A[j][i] = 1
         return A
 
     def degree(self):
         D = [0 for _ in range(self.nodes())]
         for i, j in self.graph:
             D[i] += 1
-            D[j] += 1
+            if not self.directed:
+                D[j] += 1
         return D
 
     def nodes(self):
         return max(i for pair in self.graph for i in pair) + 1
 
-    def __init__(self, graph):
+    def __init__(self, graph, directed=False):
         self.graph = graph
+        self.directed = directed
 
 
 class PageRank(object):
@@ -62,8 +65,8 @@ class PageRank(object):
         while True:
             for u in range(self.nodes):
                 if self.residue[u] >= self.epsilon * self.degree[u]:
-                    self.push(u)
-                    break
+                    if self.push(u):
+                        break
             else:
                 break
         return self.pagerank
@@ -75,15 +78,18 @@ class PageRank(object):
         taken = self.alpha * self.residue[u]
         remains = self.residue[u] - taken
         self.pagerank[u] += taken
+        self.residue[u] = remains / 2
+        if self.degree[u] == 0:
+            return False
         for v in self.neighborhood(u):
             self.residue[v] += (remains / 2) / self.degree[u]
-        self.residue[u] = remains / 2
+        return True
 
-    def __init__(self, graph, alpha=0.05, epsilon=0.0001):
+    def __init__(self, graph, alpha=0.05, epsilon=0.0001, directed=False):
         self.alpha = alpha
         self.epsilon = epsilon
 
-        graph_as_matrix = GraphToMatrix(graph)
+        graph_as_matrix = GraphToMatrix(graph, directed)
         self.adjacency = graph_as_matrix.adjacency()
         self.degree = graph_as_matrix.degree()
         self.nodes = graph_as_matrix.nodes()
@@ -92,13 +98,29 @@ class PageRank(object):
         self.residue = [1/self.nodes for _ in range(self.nodes)]
 
 
+def read_graph_and_options(file):
+    defaults = {}
+    while True:
+        line = file.readline().strip()
+        if line == '---':
+            break
+        parameter, value = line.split()
+        parameter = parameter.lower()
+        if parameter in ['alpha', 'epsilon']:
+            defaults[parameter] = int(value)
+        if parameter in ['directed']:
+            defaults[parameter] = value.lower() in ['t', 'y', 'true', 'yes']
+    graph = [tuple(int(n) for n in line.split()) for line in file.readlines()]
+    return graph, defaults
+
+
 def main():
     if len(sys.argv) != 2:
         exit('usage: {} GRAPHFILE'.format(__file__))
-    file = sys.argv[1]
+    graphfile = sys.argv[1]
 
-    graph = [tuple(int(n) for n in line.split()) for line in open(file)]
-    pagerank = PageRank(graph).calculate()
+    graph, defaults = read_graph_and_options(open(graphfile))
+    pagerank = PageRank(graph, **defaults).calculate()
     print(['{:.5f}'.format(i) for i in pagerank])
 
 if __name__ == '__main__':
