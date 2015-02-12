@@ -107,7 +107,7 @@ def read_graph_and_options(file):
         parameter, value = line.split()
         parameter = parameter.lower()
         if parameter in ['alpha', 'epsilon']:
-            defaults[parameter] = int(value)
+            defaults[parameter] = float(value)
         if parameter in ['directed']:
             defaults[parameter] = value.lower() in ['t', 'y', 'true', 'yes']
     graph = [tuple(int(n) for n in line.split()) for line in file.readlines()]
